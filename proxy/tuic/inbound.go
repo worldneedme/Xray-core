@@ -207,6 +207,30 @@ func toDestinationOrDefault(addr M.Socksaddr, network net.Network, fallback net.
 	return fallback
 }
 
+func destinationFromNetAddr(addr gonet.Addr, network net.Network) net.Destination {
+	switch addr := addr.(type) {
+	case *gonet.TCPAddr:
+		return net.TCPDestination(net.IPAddress(addr.IP), net.Port(addr.Port))
+	case *gonet.UDPAddr:
+		return net.UDPDestination(net.IPAddress(addr.IP), net.Port(addr.Port))
+	case *gonet.UnixAddr:
+		return net.UnixDestination(net.DomainAddress(addr.Name))
+	}
+
+	if addr == nil {
+		return net.Destination{Network: network, Address: net.AnyIP, Port: 0}
+	}
+	host, port, err := gonet.SplitHostPort(addr.String())
+	if err != nil {
+		return net.Destination{Network: network, Address: net.ParseAddress(addr.String()), Port: 0}
+	}
+	p, err := net.PortFromString(port)
+	if err != nil {
+		p = 0
+	}
+	return net.Destination{Network: network, Address: net.ParseAddress(host), Port: p}
+}
+
 // NewConnectionEx handles new TCP connection with full metadata
 func (i *Inbound) NewConnectionEx(ctx context.Context, conn gonet.Conn, source M.Socksaddr, destination M.Socksaddr, onClose N.CloseHandlerFunc) {
 	defer conn.Close()
@@ -232,9 +256,9 @@ func (i *Inbound) NewConnectionEx(ctx context.Context, conn gonet.Conn, source M
 	inbound := &session.Inbound{
 		Name:    "tuic",
 		User:    user,
-		Source:  toDestinationOrDefault(source, net.Network_TCP, net.DestinationFromAddr(conn.RemoteAddr())),
-		Local:   net.DestinationFromAddr(i.localaddr),
-		Gateway: net.DestinationFromAddr(i.localaddr),
+		Source:  toDestinationOrDefault(source, net.Network_TCP, destinationFromNetAddr(conn.RemoteAddr(), net.Network_TCP)),
+		Local:   destinationFromNetAddr(i.localaddr, net.Network_UDP),
+		Gateway: destinationFromNetAddr(i.localaddr, net.Network_UDP),
 		Tag:     i.tag,
 	}
 
@@ -304,8 +328,8 @@ func (i *Inbound) NewPacketConnectionEx(ctx context.Context, conn N.PacketConn, 
 		Name:    "tuic",
 		User:    user,
 		Source:  toDestinationOrDefault(source, net.Network_UDP, net.Destination{}),
-		Local:   net.DestinationFromAddr(i.localaddr),
-		Gateway: net.DestinationFromAddr(i.localaddr),
+		Local:   destinationFromNetAddr(i.localaddr, net.Network_UDP),
+		Gateway: destinationFromNetAddr(i.localaddr, net.Network_UDP),
 		Tag:     i.tag,
 	}
 
