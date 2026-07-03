@@ -565,3 +565,56 @@ func IsLocal(ip net.IP) bool {
 	}
 	return false
 }
+
+type tuicWorker struct {
+	tag             string
+	proxy           proxy.Inbound
+	address         net.Address
+	port            net.Port
+	dispatcher      routing.Dispatcher
+	uplinkCounter   stats.Counter
+	downlinkCounter stats.Counter
+	stream          *internet.MemoryStreamConfig
+
+	hub internet.Listener
+
+	ctx context.Context
+}
+
+func (w *tuicWorker) Start() error {
+	ctx := session.ContextWithDispatcher(w.ctx, w.dispatcher)
+	ctx = context.WithValue(ctx, "xray_proxy_inbound", w.proxy)
+	ctx = context.WithValue(ctx, "inbound_tag", w.tag)
+	ctx = c.ContextWithID(ctx, session.NewID())
+
+	hub, err := internet.ListenTCP(ctx, w.address, w.port, w.stream, nil)
+	if err != nil {
+		return errors.New("failed to listen TUIC on ", w.port).AtWarning().Base(err)
+	}
+	w.hub = hub
+	return nil
+}
+
+func (w *tuicWorker) Close() error {
+	var errs []interface{}
+	if w.hub != nil {
+		if err := common.Close(w.hub); err != nil {
+			errs = append(errs, err)
+		}
+		if err := common.Close(w.proxy); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		return errors.New("failed to close all resources").Base(errors.New(serial.Concat(errs...)))
+	}
+	return nil
+}
+
+func (w *tuicWorker) Port() net.Port {
+	return w.port
+}
+
+func (w *tuicWorker) Proxy() proxy.Inbound {
+	return w.proxy
+}
