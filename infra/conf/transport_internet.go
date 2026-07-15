@@ -8,6 +8,7 @@ import (
 	"github.com/xtls/xray-core/common/serial"
 	"github.com/xtls/xray-core/transport/internet"
 	"github.com/xtls/xray-core/transport/internet/hysteria/congestion/bbr"
+	_ "github.com/xtls/xray-core/transport/internet/singquic"
 )
 
 type TransportProtocol string
@@ -36,6 +37,8 @@ func (p TransportProtocol) Build() (string, error) {
 		return "", errors.PrintRemovedFeatureError("QUIC transport (without web service, etc.)", "XHTTP stream-one H3")
 	case "hysteria":
 		return "hysteria", nil
+	case "tuic":
+		return "tuic", nil
 	default:
 		return "", errors.New("Config: unknown transport protocol: ", p)
 	}
