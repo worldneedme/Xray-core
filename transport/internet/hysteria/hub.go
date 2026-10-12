@@ -48,7 +48,7 @@ func (h *httpHandler) AuthHTTP(w http.ResponseWriter, r *http.Request) bool {
 
 		if h.auth {
 			w.Header().Set(ResponseHeaderUDPEnabled, strconv.FormatBool(h.validator != nil))
-			w.Header().Set(CommonHeaderCCRX, strconv.FormatUint(h.quicParams.BrutalDown, 10))
+			w.Header().Set(CommonHeaderCCRX, serverBandwidthHeader(h.quicParams))
 			w.Header().Set(CommonHeaderPadding, AuthResponsePadding.String())
 			w.WriteHeader(StatusAuthOK)
 			return true
@@ -71,20 +71,15 @@ func (h *httpHandler) AuthHTTP(w http.ResponseWriter, r *http.Request) bool {
 
 			conn := h.conn
 			quicParams := h.quicParams
-			switch quicParams.Congestion {
+			mode, tx := serverCongestion(quicParams, down)
+			switch mode {
 			case "reno":
 			case "bbr":
 				congestion.UseBBR(conn, bbr.Profile(quicParams.BbrProfile))
-			case "", "brutal":
-				if quicParams.BrutalUp == 0 || down == 0 {
-					congestion.UseBBR(conn, bbr.Profile(quicParams.BbrProfile))
-				} else {
-					congestion.UseBrutal(conn, min(quicParams.BrutalUp, down), quicParams.BrutalDisableLossCompensation)
-				}
-			case "force-brutal":
-				congestion.UseBrutal(conn, quicParams.BrutalUp, quicParams.BrutalDisableLossCompensation)
+			case "brutal":
+				congestion.UseBrutal(conn, tx, quicParams.BrutalDisableLossCompensation)
 			default:
-				panic(quicParams.Congestion)
+				panic(mode)
 			}
 
 			if h.validator != nil {
@@ -101,7 +96,7 @@ func (h *httpHandler) AuthHTTP(w http.ResponseWriter, r *http.Request) bool {
 			}
 
 			w.Header().Set(ResponseHeaderUDPEnabled, strconv.FormatBool(h.validator != nil))
-			w.Header().Set(CommonHeaderCCRX, strconv.FormatUint(h.quicParams.BrutalDown, 10))
+			w.Header().Set(CommonHeaderCCRX, serverBandwidthHeader(h.quicParams))
 			w.Header().Set(CommonHeaderPadding, AuthResponsePadding.String())
 			w.WriteHeader(StatusAuthOK)
 			return true
@@ -231,8 +226,8 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 				transport.TLSClientConfig.InsecureSkipVerify = true
 			}
 		case "", "unix":
-			u = &url.URL{Scheme: "http", Host: "localhost"}
 			path := u.Path
+			u = &url.URL{Scheme: "http", Host: "localhost"}
 			dialer := &net.Dialer{Timeout: 30 * time.Second}
 			transport = transport.Clone()
 			transport.Proxy = nil

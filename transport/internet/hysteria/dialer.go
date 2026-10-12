@@ -93,7 +93,7 @@ func (c *client) dial(ctx context.Context) error {
 		ChromeParrot:                   !quicParams.DisableChromeParrot,
 		EnableDatagrams:                true,
 		MaxDatagramFrameSize:           MaxDatagramFrameSize,
-		OmitMaxDatagramFrameSize:       time.Now().After(time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)),
+		OmitMaxDatagramFrameSize:       true,
 		DisablePathManager:             true,
 	}
 	if quicParams.InitStreamReceiveWindow == 0 {
@@ -224,7 +224,8 @@ func (c *client) dial(ctx context.Context) error {
 	_ = resp.Body.Close()
 
 	// udp, _ := strconv.ParseBool(resp.Header.Get(ResponseHeaderUDPEnabled))
-	down, _ := strconv.ParseUint(resp.Header.Get(CommonHeaderCCRX), 10, 64)
+	rx := resp.Header.Get(CommonHeaderCCRX)
+	down, _ := strconv.ParseUint(rx, 10, 64)
 	errors.LogDebug(context.Background(), "ECHAccepted ", conn.ConnectionState().TLS.ECHAccepted)
 
 	switch quicParams.Congestion {
@@ -232,10 +233,14 @@ func (c *client) dial(ctx context.Context) error {
 	case "bbr":
 		congestion.UseBBR(conn, bbr.Profile(quicParams.BbrProfile))
 	case "", "brutal":
-		if quicParams.BrutalUp == 0 || down == 0 {
+		if quicParams.BrutalUp == 0 || rx == "auto" {
 			congestion.UseBBR(conn, bbr.Profile(quicParams.BbrProfile))
 		} else {
-			congestion.UseBrutal(conn, min(quicParams.BrutalUp, down), quicParams.BrutalDisableLossCompensation)
+			tx := quicParams.BrutalUp
+			if down > 0 && tx > down {
+				tx = down
+			}
+			congestion.UseBrutal(conn, tx, quicParams.BrutalDisableLossCompensation)
 		}
 	case "force-brutal":
 		congestion.UseBrutal(conn, quicParams.BrutalUp, quicParams.BrutalDisableLossCompensation)
