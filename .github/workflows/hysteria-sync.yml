@@ -22,7 +22,15 @@ jobs:
         run: |
           go mod tidy
           gofmt -w transport/internet/hysteria/bandwidth*.go transport/internet/hysteria/hub.go transport/internet/hysteria/dialer.go transport/internet/hysteria/congestion/brutal/brutal_test.go
+      - name: Fetch geodata fixtures in CI
+        run: |
+          mkdir -p resources
+          for asset in geoip geosite; do
+            curl -fsSL "https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/$asset.dat" -o "resources/$asset.dat"
+          done
       - name: Test Hysteria, QUIC consumers and XHTTP
+        env:
+          GOEXPERIMENT: ''
         run: |
           go test -timeout 5m ./transport/internet/hysteria/... ./proxy/hysteria/... ./transport/internet/splithttp/... ./infra/conf/... ./app/dns/... ./proxy/tuic/... ./proxy/anytls/...
       - name: Build Linux core

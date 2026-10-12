@@ -2,6 +2,7 @@ name: Tests and Checkings
 
 on:
   push:
+    branches-ignore: ["sync/hysteria-2.13-v2node-0.4.5"]
   pull_request:
     types: [opened, synchronize, reopened]
 
