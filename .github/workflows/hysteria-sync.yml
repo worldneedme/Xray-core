@@ -4,7 +4,7 @@ on:
     branches: ["sync/hysteria-2.13-v2node-0.4.5"]
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -18,10 +18,6 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: '1.26.1'
-      - name: Resolve modules and format changed sources
-        run: |
-          go mod tidy
-          gofmt -w transport/internet/hysteria/bandwidth*.go transport/internet/hysteria/hub.go transport/internet/hysteria/dialer.go transport/internet/hysteria/congestion/brutal/brutal_test.go
       - name: Fetch geodata fixtures in CI
         run: |
           mkdir -p resources
@@ -32,15 +28,6 @@ jobs:
         env:
           GOEXPERIMENT: ''
         run: |
-          go test -timeout 5m ./transport/internet/hysteria/... ./proxy/hysteria/... ./transport/internet/splithttp/... ./infra/conf/... ./app/dns/... ./proxy/tuic/... ./proxy/anytls/...
+          go test -mod=readonly -timeout 5m ./transport/internet/hysteria/... ./proxy/hysteria/... ./transport/internet/splithttp/... ./infra/conf/... ./app/dns/... ./proxy/tuic/... ./proxy/anytls/...
       - name: Build Linux core
-        run: go build -o /tmp/xray ./main
-      - name: Save resolved dependency checksums
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add go.mod go.sum transport/internet/hysteria
-          if ! git diff --cached --quiet; then
-            git commit -m 'chore: resolve Hysteria 2.13 QUIC dependencies'
-            git push origin HEAD:${{ github.ref_name }}
-          fi
+        run: go build -mod=readonly -o /tmp/xray ./main
