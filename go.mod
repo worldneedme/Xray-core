@@ -1,6 +1,6 @@
 module github.com/xtls/xray-core
 
-go 1.26
+go 1.26.0
 
 require (
 	github.com/apernet/quic-go v0.63.1-0.20261004180939-a10df75c260c
@@ -49,7 +49,7 @@ require (
 	github.com/juju/ratelimit v1.0.2 // indirect
 	github.com/klauspost/compress v1.17.4 // indirect
 	github.com/koron/go-ssdp v0.0.4 // indirect
-	github.com/kr/text v0.2.0 // indirect
+	github.com/kr/pretty v0.3.1 // indirect
 	github.com/libp2p/go-netroute v0.2.1 // indirect
 	github.com/pion/dtls/v3 v3.1.5 // indirect
 	github.com/pion/logging v0.2.4 // indirect
